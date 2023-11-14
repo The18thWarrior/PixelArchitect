@@ -172,7 +172,7 @@ useEffect(() => {
                   {/* Display the correct icon depending on the message type */}
                   {message.role === "assistant" ? (
                     <Image
-                      src="/openai.png"
+                      src="/Fox_Logo.png"
                       alt="AI"
                       width="30"
                       height="30"
