@@ -32,6 +32,11 @@
   margin-left: 1rem;
 }
 
+.navlogo img {
+  vertical-align:bottom;
+  margin-right: 0.3rem
+}
+
 .navlinks {
   width: 20rem;
   display: flex;

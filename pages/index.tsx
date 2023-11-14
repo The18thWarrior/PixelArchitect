@@ -5,9 +5,12 @@ import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import CircularProgress from "@mui/material/CircularProgress";
 import Link from "next/link";
+import axios from "axios";
+import { run } from "node:test";
 
 export default function Home() {
   const [userInput, setUserInput] = useState("");
+  const [currentThread, setCurrentThread] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Hi there! How can I help?" },
@@ -45,6 +48,25 @@ useEffect(() => {
     setUserInput("");
   };
 
+  const isRunComplete = async (threadId: string, runId: string) : Promise<any> => {
+    const runStatus = await axios({
+      url: `/api/chat?runId=${runId}&threadId=${threadId}`,
+      method: "GET",
+      timeout: 60000      
+    });
+
+    if (runStatus.data.status === 'in_progress') {
+      return await isRunComplete(threadId, runId);
+    } else if (runStatus.data.status === 'failed') {
+      return null;
+    } else if (runStatus.data.status === 'complete') {
+      console.log(runStatus.data);
+      return runStatus.data.result.value;
+    } else {
+      return null;
+    }
+  }
+
   // Handle form submission
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -58,27 +80,39 @@ useEffect(() => {
     setMessages(context);
 
     // Send chat history to API
-    const response = await fetch("/api/chat", {
+    const sendMessage = await axios({
+      url: "/api/chat",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ messages: context }),
+      data: JSON.stringify({ message: userInput, threadId: currentThread }),
+      timeout: 60000      
     });
 
-    // Reset user input
-    setUserInput("");
+    if (!sendMessage.data || sendMessage.data.error) {
+      handleError();
+      return;
+    }
+    console.log(sendMessage.data);
+    const threadId = sendMessage.data.threadId;
+    setCurrentThread(threadId);
+    const runId = sendMessage.data.runId;
 
-    const data = await response.json();
-
-    if (!data) {
+    const responseMessage = await isRunComplete(threadId, runId);
+    if (!responseMessage) {
       handleError();
       return;
     }
 
+    // Reset user input
+    setUserInput("");
+
+    //const data = await response.json();
+
     setMessages((prevMessages) => [
       ...prevMessages,
-      { role: "assistant", content: data.result.content },
+      { role: "assistant", content: responseMessage },
     ]);
     setLoading(false);
   };
@@ -97,22 +131,23 @@ useEffect(() => {
   return (
     <>
       <Head>
-        <title>Chat UI</title>
-        <meta name="description" content="OpenAI interface" />
+        <title>PixelArchitect</title>
+        <meta name="description" content="Your personal Salesforce SME" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/Fox_Logo.png" />
       </Head>
       <div className={styles.topnav}>
         <div className={styles.navlogo}>
-          <Link href="/">Chat UI</Link>
+          <Image src={'/Fox_Logo.png'} alt={""} width={25} height={25} />
+          <Link href="/">PixelArchitect</Link>
         </div>
         <div className={styles.navlinks}>
-          <a
+          {/*<a
             href="https://platform.openai.com/docs/models/gpt-4"
             target="_blank"
           >
             Docs
-          </a>
+          </a>*/}
           
         </div>
       </div>
