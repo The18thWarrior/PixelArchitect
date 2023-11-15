@@ -22,7 +22,6 @@ async function chatHandler(
   } else if (req.method === 'POST') {
     await sendMessage(req, res);
   }
-  
 }
 
 

@@ -85,6 +85,36 @@
   color: #5f6368;
 }
 
+.loginbutton {
+  display: inline-block;
+  outline: none;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16px;
+  padding: 2px 16px;
+  height: 32px;
+  min-width: 60px;
+  min-height: 32px;
+  border: none;
+  color: #fff;
+  background-color: #4f545c;
+  transition: background-color .17s ease,color .17s ease;
+}
+
+.loginbutton:hover {
+  background: #1f2227;
+  border-radius: 0.2rem;
+}
+
+.loginbuttondiv {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 50vh;
+}
+
 .generatebutton {
   position: absolute;
   top: 0.87rem;
@@ -95,6 +125,8 @@
   border: none;
   display: flex;
 }
+
+
 
 .loadingwheel {
   position: absolute;
