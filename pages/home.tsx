@@ -6,136 +6,217 @@ import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import CircularProgress from "@mui/material/CircularProgress";
 import Link from "next/link";
+import { styled, alpha } from '@mui/material/styles';
 import axios from "axios";
-import { Auth0Provider, useAuth0 } from "@auth0/auth0-react";
+import { Auth0Provider, User, useAuth0 } from "@auth0/auth0-react";
 import { run } from "node:test";
 import {Connection} from "jsforce"
+import Agent from "@/components/agents";
+import { IconSalesforce } from "@/components/icons";
+import { Box, Button, Divider, IconButton, Menu, MenuItem, MenuProps, Stack, Typography } from "@mui/material";
+import React from "react";
+import { Metadata, UserInfo } from "@/utils/types";
+//import MetadataButton from "@/components/metadataButton";
 
-export default function Home() {
+
+const StyledMenu = styled((props: MenuProps) => (
+  <Menu
+    elevation={0}
+    anchorOrigin={{
+      vertical: 'bottom',
+      horizontal: 'right',
+    }}
+    transformOrigin={{
+      vertical: 'top',
+      horizontal: 'right',
+    }}
+    {...props}
+  />
+))(({ theme }) => ({
+  '& .MuiPaper-root': {
+    borderRadius: 6,
+    marginTop: theme.spacing(1),
+    minWidth: 180,
+    color: theme.palette.grey[300],
+    backgroundColor: theme.palette.grey[800],
+    boxShadow:
+      'rgb(255, 255, 255) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px',
+    '& .MuiMenu-list': {
+      padding: '4px 0',
+    },
+    '& .MuiMenuItem-root': {
+      '& .MuiSvgIcon-root': {
+        fontSize: 18,
+        color: theme.palette.text.secondary,
+        marginRight: theme.spacing(1.5),
+      },
+      '&:active': {
+        backgroundColor: alpha(
+          theme.palette.primary.main,
+          theme.palette.action.selectedOpacity,
+        ),
+      },
+    },
+  },
+}));
+
+export default function Home({useHeader}: {useHeader: boolean}) {
   const { isAuthenticated, loginWithRedirect,loginWithPopup, logout, user } = useAuth0();
-  const [userInput, setUserInput] = useState("");
-  const [currentThread, setCurrentThread] = useState("");
+  const [ userInfo, setUserInfo] = useState({
+    id: ''
+  } as UserInfo);
+  const [ isDeleteHover, setIsDeleteHover] = useState(false);
+  const [internalMetadata, setInternalMetadata] = useState({} as Metadata);
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hi there! How can I help?" },
-  ]);
-  console.log(process.env.AUTH0_DOMAIN)
-  const messageListRef = useRef<HTMLDivElement>(null);
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const [stage, setStage] = useState('');
 
-
-  // Auto scroll chat to bottom
-  useEffect(() => {
-    if (messageListRef.current) {
-      const messageList = messageListRef.current;
-      messageList.scrollTop = messageList.scrollHeight;
-    }
-  }, [messages]);
-
-// Focus on input field
-useEffect(() => {
-  if (textAreaRef.current) {
-    textAreaRef.current.focus();
-  }
-}, []);
-
-// user info
-useEffect(() => {
-  console.log(user);
-}, [user])
-
-  // Handle errors
-  const handleError = () => {
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      {
-        role: "assistant",
-        content: "Oops! There seems to be an error. Please try again.",
-      },
-    ]);
-    setLoading(false);
-    setUserInput("");
-  };
-
-  const isRunComplete = async (threadId: string, runId: string) : Promise<any> => {
-    const runStatus = await axios({
-      url: `/api/chat?runId=${runId}&threadId=${threadId}`,
-      method: "GET",
-      timeout: 60000      
-    });
-
-    if (runStatus.data.status === 'in_progress') {
-      return await isRunComplete(threadId, runId);
-    } else if (runStatus.data.status === 'failed') {
-      return null;
-    } else if (runStatus.data.status === 'complete') {
-      console.log(runStatus.data);
-      return runStatus.data.result.value;
-    } else {
-      return null;
-    }
-  }
-
-  // Handle form submission
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
-    if (userInput.trim() === "") {
-      return;
-    }
-
+  async function retrieveMetadata() {
     setLoading(true);
-    const context = [...messages, { role: "user", content: userInput }];
-    setMessages(context);
+    setStage(`metadata`);
+    const metadata = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=metadata`)).json()
+    setStage(`tooling`);
+    const tooling = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=tooling`)).json()
+    setStage(`classes`);
+    const apex = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=classes`)).json()
+    setStage(`triggers`);
+    const triggers = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=triggers`)).json()
+    setStage(`flows`);
+    const flows = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=flows`)).json()
+    //setStage(`approval`);
+    //const approval = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=approval`)).json()
+    setStage(`assignment`);
+    const assignment = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=assignment`)).json()
+    setStage(`aura`);
+    const aura = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=aura`)).json()
+    setStage(`connected`);
+    const connected = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=connected`)).json()
+    setStage(`duplicate`);
+    const duplicate = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=duplicate`)).json()
+    setStage(`lightningMessage`);
+    const lightningMessage = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=lightningMessage`)).json()
+    setStage(`permissionSet`);
+    const permissionSet = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=permissionSet`)).json()
+    setStage(`pathAssistant`);
+    const pathAssistant = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=pathAssistant`)).json()
+    setStage(`profile`);
+    const profile = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=profile`)).json()
+    setStage(`report`);
+    const report = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=report`)).json()
+    setStage(`territory`);
+    const territory = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=territory`)).json()
+    setStage(`queueconfig`);
+    const queueconfig = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=queueconfig`)).json()
+    setStage(`compiling`);
+    const fullDataset = {
+      metadata: metadata.metadataObjects,
+      tooling: tooling.sobjects,
+      apex,
+      triggers,
+      flows,
+      approval,
+      assignment,
+      aura,
+      connected,
+      duplicate,
+      lightningMessage,
+      permissionSet,
+      pathAssistant,
+      profile,
+      report,
+      territory,
+      queueconfig,
+    } 
+    console.log(fullDataset);
+    setStage('');
+    const types = [
+      'metadata','tooling',
+      'classes','triggers',
+      'flows','approval',
+      'assignment','aura',
+      'connected','duplicate',
+      'lightningMessage','permissionSet',
+      'pathAssistant','profile',
+      'report','territory',
+      'queueconfig'
+    ];
 
-    // Send chat history to API
-    const sendMessage = await axios({
-      url: "/api/chat",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: JSON.stringify({ message: userInput, threadId: currentThread }),
-      timeout: 60000      
-    });
+    /*const metadata = await getAllMetadata();
+    const globalData = await getAllToolingData();
+    const apexData = await getAllApexClasses();
+    const apexFiltered = apexData.filter((val) => {
+      return val.Body !== '(hidden)'
+    })
+    const triggerData = await getAllApexTriggers();
+    const triggerFiltered = triggerData.filter((val) => {
+      return val.Body !== '(hidden)'
+    })
+    const flowData = await getAllFlows();
+    const getAllObjects = await getAllObjects();
+    const objectFields = await getAllObjectFields(getAllObjects);
+    const objectValidations = await getAllObjectValidations(getAllObjects);
 
-    if (!sendMessage.data || sendMessage.data.error) {
-      handleError();
-      return;
-    }
-    console.log(sendMessage.data);
-    const threadId = sendMessage.data.threadId;
-    setCurrentThread(threadId);
-    const runId = sendMessage.data.runId;
+    //console.log('apexData',apexFiltered);
+    const fullDataset = {
+      metadata: metadata.metadataObjects,
+      tooling: globalData.sobjects,
+      apex: apexFiltered,
+      triggers: triggerFiltered,
+      flows: flowData,
+      objectFields: objectFields,
+      objectValidations: objectValidations
+    } as Metadata;
+    console.log(fullDataset);
 
-    const responseMessage = await isRunComplete(threadId, runId);
-    if (!responseMessage) {
-      handleError();
-      return;
-    }
+    await set('sfdc', fullDataset);
 
-    // Reset user input
-    setUserInput("");
-
-    //const data = await response.json();
-
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { role: "assistant", content: responseMessage },
-    ]);
+    setInternalMetadata(fullDataset);*/
+    
     setLoading(false);
+  }
+  // user info
+  useEffect(() => {
+    const runAsync = async() => {
+      const result = await fetch(`/api/adapter/salesforce/user?sub=${user?.sub}`);
+      const _userInfo = await result.json();
+      console.log('userInfo',_userInfo);
+      if (_userInfo && userInfo !== null) {
+        setUserInfo(_userInfo as UserInfo);
+      }
+    }
+    runAsync()
+  }, [user])
+
+  const authorize = async() => {
+      window.location.assign(`/api/adapter/salesforce?sub=${user?.sub}`);
+  }
+
+  const deleteAuth = async() => {
+    const result = await fetch(`/api/adapter/salesforce?sub=${user?.sub}`, { method: 'DELETE' });
+    setUserInfo({id:''} as UserInfo);
+  }
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
   };
 
-  // Prevent blank submissions and allow for multiline input
-  const handleEnter = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && userInput) {
-      if (!e.shiftKey && userInput) {
-        handleSubmit(e);
-      }
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-    }
-  };
+  function MetadataButton() {  
+    return (
+      <MenuItem onClick={() => retrieveMetadata()}>
+        {!loading && 'Refresh Metadata'}
+        {loading && 
+          <Stack direction={'row'}>
+            <Typography variant={'body1'}>{stage}</Typography>
+            <CircularProgress size={20} sx={{textAlign: 'center', mx: 'auto'}}/>
+          </Stack>
+        }
+      </MenuItem>
+    );
+  }
 
   if (!isAuthenticated) {
     return <div className={styles.loginbuttondiv}><button className={styles.loginbutton} onClick={()=>loginWithPopup()}>Log in</button></div>;
@@ -144,124 +225,57 @@ useEffect(() => {
   return (
     
     <>
-      <div className={styles.topnav}>
-        <div className={styles.navlogo}>
-          <Image src={'/Fox_Logo.png'} alt={""} width={25} height={25} />
-          <Link href="/">PixelArchitect</Link>
-        </div>
-        <div className={styles.navlinks}>
-          {/*<a
-            href="https://platform.openai.com/docs/models/gpt-4"
-            target="_blank"
-          >
-            Docs
-          </a>*/}
-          <button onClick={() => logout()} className={styles.loginbutton}>Logout</button>
-          
-        </div>
-      </div>
-      <main className={styles.main}>
-        <div className={styles.cloud}>
-          <div ref={messageListRef} className={styles.messagelist}>
-            {messages.map((message, index) => {
-              return (
-                // The latest message sent by the user will be animated while waiting for a response
-                <div
-                  key={index}
-                  className={
-                    message.role === "user" &&
-                    loading &&
-                    index === messages.length - 1
-                      ? styles.usermessagewaiting
-                      : message.role === "assistant"
-                      ? styles.apimessage
-                      : styles.usermessage
-                  }
-                >
-                  {/* Display the correct icon depending on the message type */}
-                  {message.role === "assistant" ? (
-                    <Image
-                      src="/Fox_Logo.png"
-                      alt="AI"
-                      width="30"
-                      height="30"
-                      className={styles.boticon}
-                      priority={true}
-                    />
-                  ) : (
-                    <Image
-                      src="/usericon.png"
-                      alt="Me"
-                      width="30"
-                      height="30"
-                      className={styles.usericon}
-                      priority={true}
-                    />
-                  )}
-                  <div className={styles.markdownanswer}>
-                    {/* Messages are being rendered in Markdown format */}
-                    <ReactMarkdown linkTarget={"_blank"}>
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              );
-            })}
+      {useHeader && 
+        <div className={styles.topnav}>
+          <div className={styles.navlogo}>
+            <Image src={'/Fox_Logo.png'} alt={""} width={25} height={25} />
+            <Link href="/">PixelArchitect</Link>
           </div>
-        </div>
-        <div className={styles.center}>
-          <div className={styles.cloudform}>
-            <form onSubmit={handleSubmit}>
-              <textarea
-                disabled={loading}
-                onKeyDown={handleEnter}
-                ref={textAreaRef}
-                autoFocus={false}
-                rows={1}
-                maxLength={512}
-                
-                id="userInput"
-                name="userInput"
-                placeholder={
-                  loading ? "Waiting for response..." : "Type your question..."
-                }
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                className={styles.textarea}
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className={styles.generatebutton}
+          <div className={styles.navlinks}>
+            {/*<a
+              href="https://platform.openai.com/docs/models/gpt-4"
+              target="_blank"
+            >
+              Docs
+            </a>*/}
+            {userInfo && userInfo.id.length === 0 && 
+              <Button variant={'text'} onClick={()=>{authorize()}} endIcon={<IconSalesforce />} sx={{textTransform:'none', fontWeight:'bold'}}>Connect</Button>
+            }
+            {userInfo.id.length > 0 && 
+              <>
+              <IconButton
+                id="basic-button"
+                onClick={handleClick}
+                sx={{paddingY:.45}}
               >
-                {loading ? (
-                  <div className={styles.loadingwheel}>
-                    <CircularProgress color="inherit" size={20} />{" "}
-                  </div>
-                ) : (
-                  // Send icon SVG in input field
-                  <svg
-                    viewBox="0 0 20 20"
-                    className={styles.svgicon}
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path>
-                  </svg>
-                )}
-              </button>
-            </form>
-          </div>
-          <div className={styles.footer}>
-            <p>
-              Powered by{" "}
-              <a href="https://openai.com/" target="_blank">
-                OpenAI
-              </a>
-              . 
-            </p>
+                <IconSalesforce />
+              </IconButton>
+              <StyledMenu
+                id="basic-menu"
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                MenuListProps={{
+                  'aria-labelledby': 'basic-button',
+                }}
+                sx={{marginY:0, paddingY: 0}}
+              >
+                <MenuItem>{userInfo.name}</MenuItem>
+                <Divider />
+                
+                <MetadataButton />
+                <MenuItem onClick={() => deleteAuth()}>Disconnect</MenuItem>
+              </StyledMenu>
+              </>
+            }
+              
+            <button onClick={() => logout()} className={styles.loginbutton}>Logout</button>
+            
           </div>
         </div>
-      </main>
+      }
+      
+      <Agent user={{sub: user?.sub as string, email: user?.email as string}}/>
     </>
   );
 }

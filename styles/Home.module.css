@@ -40,7 +40,7 @@
 .navlinks {
   width: 20rem;
   display: flex;
-  justify-content: space-evenly;
+  justify-content: end;
   align-items: center;
 }
 
@@ -183,6 +183,11 @@
   animation-name: loading-gradient;
 }
 
+.iconClass {
+  height: 25;
+  width: 40;
+}
+
 @keyframes loading-gradient {
   0% {
     background-position: -100% 0;
@@ -234,6 +239,11 @@
 .boticon, .usericon {
   margin-right: 1rem;
   border-radius: 0.1rem;
+}
+
+.iconButton {
+  background:transparent;
+  border-width: 0;
 }
 
 .markdownanswer h1, .markdownanswer h2, .markdownanswer h3 {
