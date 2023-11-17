@@ -1,6 +1,6 @@
 
 import { VercelKV } from '@vercel/kv'
-import { Connection, ListMetadataQuery, OAuth2 } from "jsforce";
+import { Connection, DescribeSObjectResult, Field, ListMetadataQuery, MetadataInfo, OAuth2 } from "jsforce";
 import { chunkArray, nanoid } from '@/utils/utils';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -66,10 +66,12 @@ async function handler(
         return;   
       } else if (type === 'triggers') {
         const result = await getAllApexTriggers(conn);
-        res.status(200).json(result);     
+        //const squash = Promise.all(result);
+        res.status(200).json(result); 
         return;   
       } else if (type === 'flows') {
         const result = await getAllFlows(conn);
+        //const squash = await Promise.all(result);
         res.status(200).json(result);     
         return;   
       } else if (type === 'approval') {
@@ -120,24 +122,22 @@ async function handler(
         const result = await retrieveMetadata(conn, 'QueueRoutingConfig');
         res.status(200).json(result);     
         return;   
+      } else if (type === 'objects') {
+        const result = await getAllObjects(conn);
+        res.status(200).json(result);     
+        return;   
+      } else if (type === 'fields') {
+        const result = await getAllFields(conn);
+        res.status(200).json(result);     
+        return;   
+      } else if (type === 'validations') {
+        const result = await getAllValidations(conn);
+        res.status(200).json(result);     
+        return;   
       } else {
         res.status(400);     
         return;   
       } 
-      /**
-       * approval process
-       * assignment rules
-       * auradefinitionbundle
-       * connectedapp
-       * duplicaterule
-       * lightningmessagechannel
-       * permissionset
-       * pathassistant
-       * profile
-       * report
-       * territory
-       * 
-       */
     }
   } else if (req.method === 'POST') {
     //await sendMessage(req, res);
@@ -258,6 +258,91 @@ export const getAllFlows = async (conn: Connection): Promise<any> => {
   
 }
 
+/**
+ * Retrieve fields for a specific object using Metadata API.
+ * @param conn - Salesforce connection object.
+ * @param objectName - Name of the object to retrieve fields for.
+ * @returns - A promise that resolves with the fields of the object.
+ */
+async function getObjectFields(conn: Connection, objectName: string): Promise<any[]> {
+  try {
+    //const metadata: MetadataInfo = await conn.metadata.read('CustomObject', objectName) as MetadataInfo;
+    const sObjectDescription: DescribeSObjectResult = await conn.describe(objectName);
+    
+    const fields = sObjectDescription.fields;
+    if (!fields) {
+      return [];      
+    }
+
+    return fields.map((field: Field) => {
+      const picklistValues = field.type === 'picklist' ? field.picklistValues?.map((val) => {return val.value}) : []
+      //console.log(picklistValues);
+      const newField = {
+        apiName : field.name,
+        //label: field.label,
+        // TODO : create static object to hold standard field data types
+        dataType: field.type ? field.type : 'text',
+        picklistValues
+      };
+      return newField;
+    });
+  } catch (error) {
+    //console.error(`Error fetching fields for ${objectName}:`);
+    throw error;
+  }
+}
+
+/**
+ * Main function to retrieve fields for selected objects.
+ * @param accessToken - Salesforce access token.
+ * @param refreshToken - Salesforce refresh token.
+ * @param instanceUrl - Salesforce instance URL.
+ * @param selectedObjects - Objects to retrieve fields for.
+ * @returns - A promise that resolves with a map of fields for each object.
+ */
+export const getAllValidations = async function (
+  connection: Connection
+): Promise<{ [key: string]: any[] }> {
+  const conn = connection;
+  const fieldsMap: { [key: string]: any[] } = {};
+  const selectedObjects = await getAllObjects(conn);
+
+  for (const value of selectedObjects) {
+    try {
+      const metadata: any[] = await conn.metadata.read('ValidationRule', []) as any[];
+      fieldsMap[value?.fullName] = metadata;
+    } catch (error) {
+      //console.error(`Error processing ${key}:`);
+    }
+  }
+
+  return fieldsMap;
+}
+
+export const getAllFields = async function (
+  connection: Connection
+): Promise<{ [key: string]: any[] }> {
+  const conn = connection;
+  const fieldsMap: { [key: string]: string[] } = {};
+  const selectedObjects = await getAllObjects(conn);
+
+  for (const value of selectedObjects) {
+    try {
+      const fields = await getObjectFields(conn, value?.fullName as string);
+      fieldsMap[value?.fullName] = fields;
+    } catch (error) {
+      //console.error(`Error processing ${key}:`);
+    }
+  }
+
+  return fieldsMap;
+}
+
+export const getAllObjects = async (conn: Connection) : Promise<any> => {
+  const types = [{type: 'CustomObject'}];
+  return await conn.metadata.list(types, '52.0');
+}
+
 export default handler;
 export const config = {
   api: {
@@ -266,5 +351,5 @@ export const config = {
     },
   },
   // Specifies the maximum allowed duration for this function to execute (in seconds)
-  maxDuration: 30,
+  maxDuration: 60,
 }

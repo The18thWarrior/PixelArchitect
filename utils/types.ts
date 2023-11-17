@@ -5,8 +5,15 @@ export interface Metadata {
   triggers?: any[];
   flows?: any[];
   objects?: any[];
-  objectFields?: any[];
-  objectValidations?: any[];
+  fields?: any[];
+  validations?: any[];
+  assignment?: any[];
+  aura?: any[];
+  connected?: any[];
+  lightningMessage?: any[];
+  permissionSet?: any[];
+  pathAssistant?: any[];
+  report?: any[];
 }
 
 export interface UserInfo extends Record<string, any> {
@@ -15,4 +22,9 @@ export interface UserInfo extends Record<string, any> {
   refreshToken: string
   instanceUrl: string
   name?: string
+}
+
+export interface Thread {
+  threadId: string; 
+  name: string; 
 }

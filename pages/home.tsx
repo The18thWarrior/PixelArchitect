@@ -11,11 +11,12 @@ import axios from "axios";
 import { Auth0Provider, User, useAuth0 } from "@auth0/auth0-react";
 import { run } from "node:test";
 import {Connection} from "jsforce"
-import Agent from "@/components/agents";
+import Agent from "@/components/agent";
 import { IconSalesforce } from "@/components/icons";
 import { Box, Button, Divider, IconButton, Menu, MenuItem, MenuProps, Stack, Typography } from "@mui/material";
 import React from "react";
 import { Metadata, UserInfo } from "@/utils/types";
+import { get, set } from "@/utils/db";
 //import MetadataButton from "@/components/metadataButton";
 
 
@@ -78,57 +79,85 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     const tooling = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=tooling`)).json()
     setStage(`classes`);
     const apex = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=classes`)).json()
+    const apexComplete = apex.reduce((finalVal: any, val: { value: any; }) => {
+      return [...finalVal, val.value];
+    }, [])
+    const apexFiltered = apexComplete.filter((val: { Body: string; }) => {
+      return val.Body !== '(hidden)'
+    })
     setStage(`triggers`);
     const triggers = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=triggers`)).json()
+    const triggerComplete = triggers.reduce((finalVal: any[], val: { value: any; }) => {
+      return [...finalVal, val.value];
+    }, [])
+    const triggerFiltered = triggerComplete.filter((val: { Body: string; }) => {
+      return val.Body !== '(hidden)'
+    })
     setStage(`flows`);
     const flows = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=flows`)).json()
+    const flowsComplete = flows.reduce((finalVal: any[], val: { value: any; }) => {
+      return [...finalVal, ...val.value];
+    }, [])
+    const flowsFiltered = flowsComplete.filter((val: { fullName: string; }) => {
+      return val.fullName !== null
+    })
+    
     //setStage(`approval`);
     //const approval = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=approval`)).json()
-    setStage(`assignment`);
+    setStage(`Objects`);
+    const objects = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=objects`)).json()
+    setStage('Fields');
+    const fields = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=fields`)).json()
+    setStage('Validation Rules');
+    const validations = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=validations`)).json()
+    setStage(`Assignment Rules`);
     const assignment = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=assignment`)).json()
-    setStage(`aura`);
+    setStage(`Aura Components`);
     const aura = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=aura`)).json()
-    setStage(`connected`);
+    setStage(`Connected Apps`);
     const connected = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=connected`)).json()
-    setStage(`duplicate`);
-    const duplicate = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=duplicate`)).json()
-    setStage(`lightningMessage`);
+    //setStage(`duplicate`);
+    //const duplicate = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=duplicate`)).json()
+    setStage(`Lightning Messages`);
     const lightningMessage = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=lightningMessage`)).json()
-    setStage(`permissionSet`);
+    setStage(`Permission Sets`);
     const permissionSet = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=permissionSet`)).json()
-    setStage(`pathAssistant`);
+    setStage(`Path Assistant`);
     const pathAssistant = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=pathAssistant`)).json()
-    setStage(`profile`);
-    const profile = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=profile`)).json()
+    //setStage(`profile`);
+    //const profile = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=profile`)).json()
     setStage(`report`);
     const report = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=report`)).json()
-    setStage(`territory`);
-    const territory = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=territory`)).json()
-    setStage(`queueconfig`);
-    const queueconfig = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=queueconfig`)).json()
+    //setStage(`territory`);
+    //const territory = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=territory`)).json()
+    //setStage(`queueconfig`);
+    //const queueconfig = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=queueconfig`)).json()
     setStage(`compiling`);
     const fullDataset = {
+      objects,
       metadata: metadata.metadataObjects,
       tooling: tooling.sobjects,
-      apex,
-      triggers,
-      flows,
-      approval,
+      apex: apexFiltered,
+      triggers: triggerFiltered,
+      flows: flowsFiltered,
+     //approval,
       assignment,
       aura,
       connected,
-      duplicate,
+      //duplicate,
       lightningMessage,
       permissionSet,
       pathAssistant,
-      profile,
+      //profile,
       report,
-      territory,
-      queueconfig,
+      fields,
+      validations,
+      //territory,
+      //queueconfig,
     } 
-    console.log(fullDataset);
+    //console.log(fullDataset);
     setStage('');
-    const types = [
+    /*const types = [
       'metadata','tooling',
       'classes','triggers',
       'flows','approval',
@@ -138,39 +167,9 @@ export default function Home({useHeader}: {useHeader: boolean}) {
       'pathAssistant','profile',
       'report','territory',
       'queueconfig'
-    ];
-
-    /*const metadata = await getAllMetadata();
-    const globalData = await getAllToolingData();
-    const apexData = await getAllApexClasses();
-    const apexFiltered = apexData.filter((val) => {
-      return val.Body !== '(hidden)'
-    })
-    const triggerData = await getAllApexTriggers();
-    const triggerFiltered = triggerData.filter((val) => {
-      return val.Body !== '(hidden)'
-    })
-    const flowData = await getAllFlows();
-    const getAllObjects = await getAllObjects();
-    const objectFields = await getAllObjectFields(getAllObjects);
-    const objectValidations = await getAllObjectValidations(getAllObjects);
-
-    //console.log('apexData',apexFiltered);
-    const fullDataset = {
-      metadata: metadata.metadataObjects,
-      tooling: globalData.sobjects,
-      apex: apexFiltered,
-      triggers: triggerFiltered,
-      flows: flowData,
-      objectFields: objectFields,
-      objectValidations: objectValidations
-    } as Metadata;
-    console.log(fullDataset);
-
-    await set('sfdc', fullDataset);
-
-    setInternalMetadata(fullDataset);*/
-    
+    ];*/
+    await set('sfdc:metadata', fullDataset);
+    setInternalMetadata(fullDataset);
     setLoading(false);
   }
   // user info
@@ -185,6 +184,17 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     }
     runAsync()
   }, [user])
+
+  useEffect(() => {
+    const runAsync = async () => {
+      const metadata = await get('sfdc:metadata');
+      if (metadata) {
+        console.log(metadata);
+        setInternalMetadata(metadata);
+      }
+    }
+    runAsync();
+  }, [])
 
   const authorize = async() => {
       window.location.assign(`/api/adapter/salesforce?sub=${user?.sub}`);
@@ -209,9 +219,9 @@ export default function Home({useHeader}: {useHeader: boolean}) {
       <MenuItem onClick={() => retrieveMetadata()}>
         {!loading && 'Refresh Metadata'}
         {loading && 
-          <Stack direction={'row'}>
-            <Typography variant={'body1'}>{stage}</Typography>
+          <Stack spacing={2} direction={'row'} alignItems={'center'} justifyContent={'space-between'}>
             <CircularProgress size={20} sx={{textAlign: 'center', mx: 'auto'}}/>
+            <Typography variant={'body1'}>{stage}</Typography>
           </Stack>
         }
       </MenuItem>
@@ -275,7 +285,7 @@ export default function Home({useHeader}: {useHeader: boolean}) {
         </div>
       }
       
-      <Agent user={{sub: user?.sub as string, email: user?.email as string}}/>
+      <Agent user={{sub: user?.sub as string, email: user?.email as string}} />
     </>
   );
 }

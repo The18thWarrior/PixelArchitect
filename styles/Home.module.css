@@ -306,11 +306,11 @@
   }
 
   .cloud {
-    width: 22rem;
-    height: 28rem;
+    width: 85vw;
+    height: 90vh;
   }
   .textarea {
-    width: 22rem;
+    width: 85vw;
   }
   .topnav {
     border: 1px solid black;
@@ -318,18 +318,22 @@
     padding: 0.85rem 0.75rem 0.85rem 0.75rem;
   }
 
-.navlogo {
-  font-size: 1.25rem;
-  width: 20rem;
+  .navlogo {
+    font-size: 1.25rem;
+    width: 20rem;
+  }
+
+  .markdownanswer code {
+    white-space : pre-wrap !important;
+  }
+
+  .footer {
+    font-size: 0.7rem;
+    width: 100%;
+    text-align: center;
+  }
 }
 
-.markdownanswer code {
-  white-space : pre-wrap !important;
-}
-
-.footer {
-  font-size: 0.7rem;
-  width: 100%;
-  text-align: center;
-}
+.MuiDrawer-paper {
+  background-color: '#1d2333 !important';
 }
