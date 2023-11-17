@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import CircularProgress from "@mui/material/CircularProgress";
 import Link from "next/link";
 import axios from "axios";
-import { Box, Divider, Drawer, IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Stack, Typography } from "@mui/material";
+import { Box, Divider, Drawer, IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Stack, TextField, Typography } from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
 import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
 import { clear, del, get, set } from "@/utils/db";
@@ -16,6 +16,7 @@ import { Thread } from "@/utils/types";
 export default function Agent({user} : {user: {sub: string, email: string}}) {
   const [userInput, setUserInput] = useState("");
   const [currentThread, setCurrentThread] = useState("");
+  const [openAIKey, setOpenAIKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [threadList, setThreadList] = useState([] as Thread[]);
@@ -43,6 +44,7 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     }
 
     retrieveThreads();
+    retrieveAPIToken();
   }, []);
 
   // Handle errors
@@ -62,7 +64,10 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     const runStatus = await axios({
       url: `/api/chat?runId=${runId}&threadId=${threadId}`,
       method: "GET",
-      timeout: 60000      
+      timeout: 60000,
+      headers: {
+        Authorization: `${openAIKey}`
+      }
     });
 
     if (runStatus.data.status === 'in_progress') {
@@ -102,7 +107,10 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     const threadDetails = await axios({
       url: `/api/chat?threadId=${threadId}`,
       method: "PATCH",
-      timeout: 60000      
+      timeout: 60000,
+      headers: {
+        Authorization: `${openAIKey}`
+      }  
     });
     const _messages = threadDetails.data.messages.body.data;
     const result = _messages.reverse().map((value: { role: any; content: { text: { value: any; }; }[]; }) => {
@@ -172,6 +180,18 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     }
   };
 
+  const retrieveAPIToken = async () => {
+    const _token = await get('openAIKey');
+    if (_token) {
+      setOpenAIKey(_token as string);
+    }
+  }
+
+  const updateToken = async (_token: string) => {
+    await set('openAIKey', _token);
+    setOpenAIKey(_token);
+  }
+
   const toggleDrawer =
     (open: boolean) =>
     (event: React.KeyboardEvent | React.MouseEvent) => {
@@ -187,7 +207,7 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
 
   const list = () => (
     <Box
-      sx={{ width: 250, backgroundColor: '#1d2333 !important', height: '90vh', overflowY: 'scroll'}}
+      sx={{ width: 250, backgroundColor: '#1d2333 !important', height: '85vh', overflowY: 'scroll'}}
       role="presentation"
       onClick={toggleDrawer(false)}
       onKeyDown={toggleDrawer(false)}
@@ -327,6 +347,21 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
           {list()}
           <Box sx={{height: '10vh', zIndex:10000}}>
             <Divider sx={{color:'snow', borderColor: '#444'}}/>
+            <Box p={2} sx={{color:'snow'}} className={styles.cloudform}>
+              {openAIKey && openAIKey.length > 0 &&
+                <Typography variant={'caption'}>OpenAI API Key</Typography>
+              }
+              <input
+                type="password"
+                value={openAIKey}
+                className={styles.password}
+                placeholder={'OpenAI API Key'}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                  updateToken(event.target.value);
+                }}
+              />
+            </Box>
+            
           </Box>
         </Stack>
       </Drawer>
