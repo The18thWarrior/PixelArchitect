@@ -56,6 +56,9 @@ export async function postMessageSoql (
     timeout: 60000      
   });
 
+  if (typeof sendMessage.data === 'string') {
+    return JSON.parse(sendMessage.data);
+  }
   return sendMessage.data;
 }
 

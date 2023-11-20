@@ -80,7 +80,7 @@ export async function sendDataAnalystMessage(
   
     The user's question is between the triple dashes --- ${req.body.message} ---
     The SOQL query is between the triple question marks ??? ${req.body.query} ???
-    The SOQL response is between the triple exclaimation marks !!! ${req.body.response} !!!
+    The SOQL response is between the triple exclaimation marks !!! ${JSON.stringify(req.body.response)} !!!
     `}
   );
   const run = await openai.beta.threads.runs.create(threadId, {
@@ -159,7 +159,7 @@ export async function constructDataQuery(
   const sObjects = req.body.sObjects;
   const fields = req.body.fields;
   const example = {query: 'SELECT ID FROM Account'};
-  const prompt = `Based on the Salesforce object and field schemas below, write a SOQL query that would answer the user's question. ONLY use fields in the provided schema to create the query.
+  const prompt = `Based on the Salesforce object and field schemas below, write a SOQL query that would answer the user's question. ONLY use fields in the provided field schema to create the query. DO NOT use any functions within the query, the only exception being the COUNT method. 
   
   The available object are listed between the triple dashes --- ${sObjects} --- 
   The field schema for the objects are between the triple question marks ??? ${fields} ???
@@ -168,7 +168,7 @@ export async function constructDataQuery(
   The response should follow the JSON format in the example between the triple dollar signs $$$ ${example} $$$
   `;
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo-1106',
+    model: 'gpt-4-1106-preview',
     messages: [{role: 'user', content: prompt}],
     temperature: 0.4,
     response_format: {

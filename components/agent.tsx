@@ -159,122 +159,131 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
     setMessages(context);
 
     const metadata = await get('sfdc:metadata');
-    if (metadata) {
-      // Categorize message
-      const _result = await postMessageCategory(userInput, metadata.objects.map((obj: { fullName: any; }) => {
-        return obj.fullName
-      }), openAIKey);
-      const result = JSON.parse(_result);
-      console.log(result);
-      if (result.category === 'data') {
-        const sObjectsNames = result.sObjects;
-        const fields = sObjectsNames.reduce((finalVal: any, sObject: string) => {
-          return [...finalVal, {
-            fields: metadata.fields[sObject],
-            objectName: sObject
-          }]
-        }, [])
-        const query = (await postMessageSoql(user.sub, userInput, sObjectsNames, fields, openAIKey)).query;
-        const records = await postMessageQuery(user.sub, query, openAIKey);
-        const sendMessage = await postMessageAnalyst(userInput, currentThread, query, records, openAIKey);
-        if (!sendMessage || sendMessage.error) {
-          handleError();
-          return;
+    try {
+      if (metadata) {
+        // Categorize message
+        const _result = await postMessageCategory(userInput, metadata.objects.map((obj: { fullName: any; }) => {
+          return obj.fullName
+        }), openAIKey);
+        const result = JSON.parse(_result);
+        console.log(result);
+        if (result.category === 'data') {
+          const sObjectsNames = result.sObjects;
+          const fields = sObjectsNames.reduce((finalVal: any, sObject: string) => {
+            return [...finalVal, {
+              fields: metadata.fields[sObject],
+              objectName: sObject
+            }]
+          }, [])
+          const query = (await postMessageSoql(user.sub, userInput, sObjectsNames, fields, openAIKey)).query;
+          console.log(query);
+          const records = await postMessageQuery(user.sub, query, openAIKey);
+          console.log(records);
+          const sendMessage = await postMessageAnalyst(userInput, currentThread, query, records, openAIKey);
+          if (!sendMessage || sendMessage.error) {
+            handleError();
+            return;
+          }
+          const threadId = sendMessage.threadId;
+          setCurrentThread(threadId);
+          const runId = sendMessage.runId;
+    
+          const responseMessage = await isRunComplete(threadId, runId);
+          if (!responseMessage) {
+            handleError();
+            return;
+          }
+    
+          // Reset user input
+          setUserInput("");
+    
+          //const data = await response.json();
+          const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+          await updateThreads(threadId, firstMessage?.content as string);
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { role: "assistant", content: responseMessage },
+          ]);
+          setLoading(false);
+        } else if (result.category === 'design') {
+          const sendMessage = await postMessageArchitect(userInput, currentThread, metadataFileId, openAIKey);
+          if (!sendMessage || sendMessage.error) {
+            handleError();
+            return;
+          }
+          const threadId = sendMessage.threadId;
+          setCurrentThread(threadId);
+          const runId = sendMessage.runId;
+    
+          const responseMessage = await isRunComplete(threadId, runId);
+          if (!responseMessage) {
+            handleError();
+            return;
+          }
+    
+          // Reset user input
+          setUserInput("");
+    
+          //const data = await response.json();
+          const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+          await updateThreads(threadId, firstMessage?.content as string);
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { role: "assistant", content: responseMessage },
+          ]);
+          setLoading(false);
+        } else if (result.category === 'other') {
+          setUserInput("");
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { role: "assistant", content: `Sorry, I'm unable to answer questions of this nature at the moment. Please try again at another time.` },
+          ]);
+          setLoading(false);
+        } else {
+          setUserInput("");
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { role: "assistant", content: `Sorry, I'm unable to answer questions of this nature at the moment. Please try again at another time.` },
+          ]);
+          setLoading(false);
         }
-        const threadId = sendMessage.threadId;
-        setCurrentThread(threadId);
-        const runId = sendMessage.runId;
-  
-        const responseMessage = await isRunComplete(threadId, runId);
-        if (!responseMessage) {
-          handleError();
-          return;
-        }
-  
-        // Reset user input
-        setUserInput("");
-  
-        //const data = await response.json();
-        const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
-        await updateThreads(threadId, firstMessage?.content as string);
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { role: "assistant", content: responseMessage },
-        ]);
-        setLoading(false);
-      } else if (result.category === 'design') {
-        const sendMessage = await postMessageArchitect(userInput, currentThread, metadataFileId, openAIKey);
-        if (!sendMessage || sendMessage.error) {
-          handleError();
-          return;
-        }
-        const threadId = sendMessage.threadId;
-        setCurrentThread(threadId);
-        const runId = sendMessage.runId;
-  
-        const responseMessage = await isRunComplete(threadId, runId);
-        if (!responseMessage) {
-          handleError();
-          return;
-        }
-  
-        // Reset user input
-        setUserInput("");
-  
-        //const data = await response.json();
-        const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
-        await updateThreads(threadId, firstMessage?.content as string);
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { role: "assistant", content: responseMessage },
-        ]);
-        setLoading(false);
-      } else if (result.category === 'other') {
-        setUserInput("");
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { role: "assistant", content: `Sorry, I'm unable to answer questions of this nature at the moment. Please try again at another time.` },
-        ]);
-        setLoading(false);
       } else {
+        // No metadata saved, use default message
+        // Send chat history to API
+        const sendMessage = await postMessageDefault(user.sub, userInput, openAIKey);
+
+        if (!sendMessage || sendMessage.error) {
+          handleError();
+          return;
+        }
+        const threadId = sendMessage.threadId;
+        setCurrentThread(threadId);
+        const runId = sendMessage.runId;
+
+        const responseMessage = await isRunComplete(threadId, runId);
+        if (!responseMessage) {
+          handleError();
+          return;
+        }
+
+        // Reset user input
         setUserInput("");
+
+        //const data = await response.json();
+        const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+        await updateThreads(threadId, firstMessage?.content as string);
         setMessages((prevMessages) => [
           ...prevMessages,
-          { role: "assistant", content: `Sorry, I'm unable to answer questions of this nature at the moment. Please try again at another time.` },
+          { role: "assistant", content: responseMessage },
         ]);
         setLoading(false);
       }
-    } else {
-      // No metadata saved, use default message
-      // Send chat history to API
-      const sendMessage = await postMessageDefault(user.sub, userInput, openAIKey);
-
-      if (!sendMessage || sendMessage.error) {
-        handleError();
-        return;
-      }
-      const threadId = sendMessage.threadId;
-      setCurrentThread(threadId);
-      const runId = sendMessage.runId;
-
-      const responseMessage = await isRunComplete(threadId, runId);
-      if (!responseMessage) {
-        handleError();
-        return;
-      }
-
-      // Reset user input
-      setUserInput("");
-
-      //const data = await response.json();
-      const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
-      await updateThreads(threadId, firstMessage?.content as string);
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { role: "assistant", content: responseMessage },
-      ]);
-      setLoading(false);
+    } catch (err) {
+      console.log(err);
+      handleError();
+      return;
     }
+    
   };
 
   // Prevent blank submissions and allow for multiline input
