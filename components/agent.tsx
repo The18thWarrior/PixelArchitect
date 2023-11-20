@@ -167,7 +167,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
         }), openAIKey);
         const result = JSON.parse(_result);
         console.log(result);
-        if (result.category === 'data') {
+        if (result.category === 'data_deprecated') {
           const sObjectsNames = result.sObjects;
           const fields = sObjectsNames.reduce((finalVal: any, sObject: string) => {
             return [...finalVal, {
