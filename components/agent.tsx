@@ -24,7 +24,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [threadList, setThreadList] = useState([] as Thread[]);
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hi there! I'm Nemos, your friendly neighborhood Architect. How can I help?" },
+    { role: "assistant", content: "Hi there! I'm Nemos, your friendly neighborhood Salesforce Architect. I have been built to guide Salesforce solution and design decisions. How can I help?" },
   ]);
   const messageListRef = useRef<HTMLDivElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
