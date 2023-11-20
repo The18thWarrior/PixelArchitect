@@ -1,8 +1,9 @@
 
 import { VercelKV } from '@vercel/kv'
-import { Connection, DescribeSObjectResult, Field, ListMetadataQuery, MetadataInfo, OAuth2 } from "jsforce";
+import { Connection, DescribeSObjectResult, Field, ListMetadataQuery, MetadataInfo, OAuth2, Query, QueryResult } from "jsforce";
 import { chunkArray, nanoid } from '@/utils/utils';
 import { NextApiRequest, NextApiResponse } from 'next';
+import { deleteMetadata, uploadMetadata } from '@/utils/openai';
 
 var kv = new VercelKV({ 
   url: process.env.KV_REST_API_URL as string,
@@ -140,14 +141,32 @@ async function handler(
       } 
     }
   } else if (req.method === 'POST') {
-    //await sendMessage(req, res);
-  } else if (req.method === 'DELETE') {
-    const sub = path.sub;
-    if (!sub) {
-      res.redirect('/error');
+    if (!path.slug) {
+      res.status(200).json({msg: 'nothing to see here'});
+    } else if (path.slug[0] === 'metadata') {
+      await uploadMetadata(req, res);
+    } else if (path.slug[0] === 'data') {
+      const sub = path.sub;
+      const conn = await createConnection(sub as string);
+      if (!conn) {
+        res.status(400).json({err: 'no connection created'});
+        return;
+      }
+      const result = await query(conn, req.body.query);
+      res.status(200).json(result.records);
     }
-    await deleteAuth(sub as string);
-    res.status(200);
+  } else if (req.method === 'DELETE') {
+    if (!path.slug) {
+      const sub = path.sub;
+      if (!sub) {
+        res.redirect('/error');
+      }
+      await deleteAuth(sub as string);
+      res.status(200);
+    }  else if (path.slug[0] === 'metadata') {
+      await deleteMetadata(req, res);
+    } 
+    
   }
 }
 
@@ -341,6 +360,20 @@ export const getAllFields = async function (
 export const getAllObjects = async (conn: Connection) : Promise<any> => {
   const types = [{type: 'CustomObject'}];
   return await conn.metadata.list(types, '52.0');
+}
+
+export const query = async (conn: Connection, q: string): Promise<Query<QueryResult<unknown>>> => {
+  let records = [];
+  const qry = conn
+      .query(q)
+      .on('record', function (record) {
+          records.push(record);
+      })
+      .on('error', function (err) {
+          console.log('QUERY ERROR : ' + err.message);
+      })
+      .run({ autoFetch: true, maxFetch: 4000 });
+  return qry;
 }
 
 export default handler;

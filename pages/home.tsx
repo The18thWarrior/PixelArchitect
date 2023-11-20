@@ -13,10 +13,13 @@ import { run } from "node:test";
 import {Connection} from "jsforce"
 import Agent from "@/components/agent";
 import { IconSalesforce } from "@/components/icons";
-import { Box, Button, Divider, IconButton, Menu, MenuItem, MenuProps, Stack, Typography } from "@mui/material";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { Box, Button, Divider, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, MenuProps, Stack, Typography } from "@mui/material";
 import React from "react";
 import { Metadata, UserInfo } from "@/utils/types";
 import { get, set } from "@/utils/db";
+import { nanoid } from "@/utils/utils";
+import { uploadFile } from "@/utils/api";
 //import MetadataButton from "@/components/metadataButton";
 
 
@@ -70,14 +73,16 @@ export default function Home({useHeader}: {useHeader: boolean}) {
   const [internalMetadata, setInternalMetadata] = useState({} as Metadata);
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState('');
+  const [fileId, setFileId] = useState('');
+  const [refreshId, setRefreshId] = useState('');
 
   async function retrieveMetadata() {
     setLoading(true);
-    setStage(`metadata`);
+    setStage(`Metadata`);
     const metadata = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=metadata`)).json()
-    setStage(`tooling`);
+    setStage(`Tooling`);
     const tooling = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=tooling`)).json()
-    setStage(`classes`);
+    setStage(`Classes`);
     const apex = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=classes`)).json()
     const apexComplete = apex.reduce((finalVal: any, val: { value: any; }) => {
       return [...finalVal, val.value];
@@ -85,7 +90,7 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     const apexFiltered = apexComplete.filter((val: { Body: string; }) => {
       return val.Body !== '(hidden)'
     })
-    setStage(`triggers`);
+    setStage(`Triggers`);
     const triggers = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=triggers`)).json()
     const triggerComplete = triggers.reduce((finalVal: any[], val: { value: any; }) => {
       return [...finalVal, val.value];
@@ -93,7 +98,7 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     const triggerFiltered = triggerComplete.filter((val: { Body: string; }) => {
       return val.Body !== '(hidden)'
     })
-    setStage(`flows`);
+    setStage(`Flows`);
     const flows = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=flows`)).json()
     const flowsComplete = flows.reduce((finalVal: any[], val: { value: any; }) => {
       return [...finalVal, ...val.value];
@@ -122,17 +127,17 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     const lightningMessage = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=lightningMessage`)).json()
     setStage(`Permission Sets`);
     const permissionSet = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=permissionSet`)).json()
-    setStage(`Path Assistant`);
+    setStage(`Path Assistants`);
     const pathAssistant = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=pathAssistant`)).json()
     //setStage(`profile`);
     //const profile = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=profile`)).json()
-    setStage(`report`);
+    setStage(`Reports`);
     const report = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=report`)).json()
     //setStage(`territory`);
     //const territory = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=territory`)).json()
     //setStage(`queueconfig`);
     //const queueconfig = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=queueconfig`)).json()
-    setStage(`compiling`);
+    setStage(`Compiling`);
     const fullDataset = {
       objects,
       metadata: metadata.metadataObjects,
@@ -155,22 +160,18 @@ export default function Home({useHeader}: {useHeader: boolean}) {
       //territory,
       //queueconfig,
     } 
-    //console.log(fullDataset);
-    setStage('');
-    /*const types = [
-      'metadata','tooling',
-      'classes','triggers',
-      'flows','approval',
-      'assignment','aura',
-      'connected','duplicate',
-      'lightningMessage','permissionSet',
-      'pathAssistant','profile',
-      'report','territory',
-      'queueconfig'
-    ];*/
+    
     await set('sfdc:metadata', fullDataset);
     setInternalMetadata(fullDataset);
+
+    setStage('Uploading to OpenAI');
+    const openAIKey = await get('openAIKey');
+    const uploadData = await uploadFile(fullDataset, openAIKey);
+    await set('fileId', uploadData.fileId);
+    setFileId(uploadData.fileId.id);
+    setStage('');
     setLoading(false);
+    setRefreshId(nanoid())
   }
   // user info
   useEffect(() => {
@@ -192,6 +193,8 @@ export default function Home({useHeader}: {useHeader: boolean}) {
         console.log(metadata);
         setInternalMetadata(metadata);
       }
+      const _fileId = await get('fileId');
+      setFileId(_fileId.id);
     }
     runAsync();
   }, [])
@@ -217,12 +220,18 @@ export default function Home({useHeader}: {useHeader: boolean}) {
   function MetadataButton() {  
     return (
       <MenuItem onClick={() => retrieveMetadata()}>
-        {!loading && 'Refresh Metadata'}
+        {!loading && 
+          <>
+            {fileId.length > 0 && <ListItemIcon><CheckCircleIcon sx={{textAlign: 'center', mx: 'auto', color: 'green !important'}}/></ListItemIcon> }
+            
+            <Typography variant={'body1'}>{'Refresh Metadata'}</Typography>
+          </>
+        }
         {loading && 
-          <Stack spacing={2} direction={'row'} alignItems={'center'} justifyContent={'space-between'}>
-            <CircularProgress size={20} sx={{textAlign: 'center', mx: 'auto'}}/>
+          <>
+           <ListItemIcon><CircularProgress size={20} sx={{textAlign: 'center', mx: 'auto'}}/></ListItemIcon> 
             <Typography variant={'body1'}>{stage}</Typography>
-          </Stack>
+          </>
         }
       </MenuItem>
     );
@@ -274,7 +283,9 @@ export default function Home({useHeader}: {useHeader: boolean}) {
                 <Divider />
                 
                 <MetadataButton />
-                <MenuItem onClick={() => deleteAuth()}>Disconnect</MenuItem>
+                <MenuItem onClick={() => deleteAuth()} >
+                  <ListItemText inset>Disconnect</ListItemText>
+                </MenuItem>
               </StyledMenu>
               </>
             }
@@ -285,7 +296,7 @@ export default function Home({useHeader}: {useHeader: boolean}) {
         </div>
       }
       
-      <Agent user={{sub: user?.sub as string, email: user?.email as string}} />
+      <Agent user={{sub: user?.sub as string, email: user?.email as string}} refreshId={refreshId}/>
     </>
   );
 }

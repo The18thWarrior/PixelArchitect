@@ -13,3 +13,5 @@ export function chunkArray(array: string | any[], chunkSize: number) {
   }
   return chunks;
 }
+
+export async function filterMetadata(){}

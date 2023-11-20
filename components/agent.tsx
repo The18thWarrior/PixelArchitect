@@ -12,12 +12,15 @@ import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
 import { clear, del, get, set } from "@/utils/db";
 import truncate from "truncate";
 import { Thread } from "@/utils/types";
+import { DeleteRounded } from "@mui/icons-material";
+import { postMessageAnalyst, postMessageArchitect, postMessageCategory, postMessageDefault, postMessageQuery, postMessageSoql } from "@/utils/api";
 
-export default function Agent({user} : {user: {sub: string, email: string}}) {
+export default function Agent({user, refreshId} : {user: {sub: string, email: string}, refreshId: string}) {
   const [userInput, setUserInput] = useState("");
   const [currentThread, setCurrentThread] = useState("");
   const [openAIKey, setOpenAIKey] = useState('');
   const [loading, setLoading] = useState(false);
+  const [metadataFileId, setMetadataFileId] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [threadList, setThreadList] = useState([] as Thread[]);
   const [messages, setMessages] = useState([
@@ -39,13 +42,17 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
 
   // Focus on input field
   useEffect(() => {
+    const runAsync = async () => {
+      await retrieveAPIToken();
+      await retrieveThreads();
+      await retrieveMetadataFileId();
+    }
     if (textAreaRef.current) {
       textAreaRef.current.focus();
     }
-
-    retrieveThreads();
-    retrieveAPIToken();
-  }, []);
+    runAsync()
+    
+  }, [refreshId]);
 
   // Handle errors
   const handleError = () => {
@@ -82,6 +89,14 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     }
   }
 
+  const retrieveMetadataFileId = async () => {
+    const file = await get('fileId');
+    if (file) {
+      setMetadataFileId(file.id)
+      console.log('file', file);
+    }
+  }
+
   const retrieveThreads = async () => {
     const threads = await get('threads');
     if (threads) {
@@ -100,6 +115,18 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     }
     await set('threads', [...currentThreads, {threadId: _threadId, name: _name}]);
     return;
+  }
+
+  const deleteThread = async (_threadId: string) => {
+    const currentThreads = await get('threads');
+    if (!currentThreads) {
+      return;
+    }
+
+    const newThreads = currentThreads.filter((thread: Thread) => {
+      return _threadId !== thread.threadId
+    })
+    await set('threads', newThreads);
   }
 
   const switchThread = async (threadId: string) => {
@@ -131,42 +158,123 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     const context = [...messages, { role: "user", content: userInput }];
     setMessages(context);
 
-    // Send chat history to API
-    const sendMessage = await axios({
-      url: `/api/chat?sub=${user.sub}`,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: JSON.stringify({ message: userInput, threadId: currentThread }),
-      timeout: 60000      
-    });
+    const metadata = await get('sfdc:metadata');
+    if (metadata) {
+      // Categorize message
+      const _result = await postMessageCategory(userInput, metadata.objects.map((obj: { fullName: any; }) => {
+        return obj.fullName
+      }), openAIKey);
+      const result = JSON.parse(_result);
+      console.log(result);
+      if (result.category === 'data') {
+        const sObjectsNames = result.sObjects;
+        const fields = sObjectsNames.reduce((finalVal: any, sObject: string) => {
+          return [...finalVal, {
+            fields: metadata.fields[sObject],
+            objectName: sObject
+          }]
+        }, [])
+        const query = (await postMessageSoql(user.sub, userInput, sObjectsNames, fields, openAIKey)).query;
+        const records = await postMessageQuery(user.sub, query, openAIKey);
+        const sendMessage = await postMessageAnalyst(userInput, currentThread, query, records, openAIKey);
+        if (!sendMessage || sendMessage.error) {
+          handleError();
+          return;
+        }
+        const threadId = sendMessage.threadId;
+        setCurrentThread(threadId);
+        const runId = sendMessage.runId;
+  
+        const responseMessage = await isRunComplete(threadId, runId);
+        if (!responseMessage) {
+          handleError();
+          return;
+        }
+  
+        // Reset user input
+        setUserInput("");
+  
+        //const data = await response.json();
+        const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+        await updateThreads(threadId, firstMessage?.content as string);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { role: "assistant", content: responseMessage },
+        ]);
+        setLoading(false);
+      } else if (result.category === 'design') {
+        const sendMessage = await postMessageArchitect(userInput, currentThread, metadataFileId, openAIKey);
+        if (!sendMessage || sendMessage.error) {
+          handleError();
+          return;
+        }
+        const threadId = sendMessage.threadId;
+        setCurrentThread(threadId);
+        const runId = sendMessage.runId;
+  
+        const responseMessage = await isRunComplete(threadId, runId);
+        if (!responseMessage) {
+          handleError();
+          return;
+        }
+  
+        // Reset user input
+        setUserInput("");
+  
+        //const data = await response.json();
+        const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+        await updateThreads(threadId, firstMessage?.content as string);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { role: "assistant", content: responseMessage },
+        ]);
+        setLoading(false);
+      } else if (result.category === 'other') {
+        setUserInput("");
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { role: "assistant", content: `Sorry, I'm unable to answer questions of this nature at the moment. Please try again at another time.` },
+        ]);
+        setLoading(false);
+      } else {
+        setUserInput("");
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { role: "assistant", content: `Sorry, I'm unable to answer questions of this nature at the moment. Please try again at another time.` },
+        ]);
+        setLoading(false);
+      }
+    } else {
+      // No metadata saved, use default message
+      // Send chat history to API
+      const sendMessage = await postMessageDefault(user.sub, userInput, openAIKey);
 
-    if (!sendMessage.data || sendMessage.data.error) {
-      handleError();
-      return;
+      if (!sendMessage || sendMessage.error) {
+        handleError();
+        return;
+      }
+      const threadId = sendMessage.threadId;
+      setCurrentThread(threadId);
+      const runId = sendMessage.runId;
+
+      const responseMessage = await isRunComplete(threadId, runId);
+      if (!responseMessage) {
+        handleError();
+        return;
+      }
+
+      // Reset user input
+      setUserInput("");
+
+      //const data = await response.json();
+      const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+      await updateThreads(threadId, firstMessage?.content as string);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { role: "assistant", content: responseMessage },
+      ]);
+      setLoading(false);
     }
-    const threadId = sendMessage.data.threadId;
-    setCurrentThread(threadId);
-    const runId = sendMessage.data.runId;
-
-    const responseMessage = await isRunComplete(threadId, runId);
-    if (!responseMessage) {
-      handleError();
-      return;
-    }
-
-    // Reset user input
-    setUserInput("");
-
-    //const data = await response.json();
-    const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
-    await updateThreads(threadId, firstMessage?.content as string);
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { role: "assistant", content: responseMessage },
-    ]);
-    setLoading(false);
   };
 
   // Prevent blank submissions and allow for multiline input
@@ -192,8 +300,7 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
     setOpenAIKey(_token);
   }
 
-  const toggleDrawer =
-    (open: boolean) =>
+  const toggleDrawer = (open: boolean) =>
     (event: React.KeyboardEvent | React.MouseEvent) => {
       if (
         event.type === 'keydown' &&
@@ -203,11 +310,11 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
         return;
       }
       setIsSidebarOpen(open);
-    };
+  };
 
-  const list = () => (
+  const SidebarList = () => (
     <Box
-      sx={{ width: 250, backgroundColor: '#1d2333 !important', height: '85vh', overflowY: 'scroll'}}
+      sx={{ width: 300, backgroundColor: '#1d2333 !important', height: '85vh', overflowY: 'scroll'}}
       role="presentation"
       onClick={toggleDrawer(false)}
       onKeyDown={toggleDrawer(false)}
@@ -219,7 +326,13 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
         </ListItem>
         <Divider sx={{color:'snow', borderColor: '#444'}}/>
         {threadList.map((thread, index) => (
-          <ListItem key={thread.threadId} disablePadding sx={{color: 'white'}}>
+          <ListItem key={thread.threadId} disablePadding sx={{color: 'white'}} 
+            secondaryAction={
+              <IconButton edge="end" aria-label="delete" color={'inherit'} onClick={() => deleteThread(thread.threadId)}>
+                <DeleteRounded />
+              </IconButton>
+            }
+          >
             <ListItemButton onClick={() => switchThread(thread.threadId)}>
               <ListItemText primary={<Typography variant={'body2'}>{truncate(thread.name, 25)}</Typography>} />
             </ListItemButton>
@@ -327,7 +440,7 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
             <a href="https://openai.com/" target="_blank">
               OpenAI
             </a>
-            . Limited to 25 requests per hour.
+            . {!openAIKey || openAIKey.length === 0 && 'Limited to 25 requests per hour.' }
           </p>
         </div>
       </div>
@@ -344,7 +457,7 @@ export default function Agent({user} : {user: {sub: string, email: string}}) {
         }}
       >
         <Stack direction={'column'} spacing={0}>
-          {list()}
+          {SidebarList()}
           <Box sx={{height: '10vh', zIndex:10000}}>
             <Divider sx={{color:'snow', borderColor: '#444'}}/>
             <Box p={2} sx={{color:'snow'}} className={styles.cloudform}>
