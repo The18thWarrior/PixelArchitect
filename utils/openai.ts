@@ -21,7 +21,7 @@ export async function defaultMessage(
   const openaiKey = req.headers.authorization;
   const openai = (openaiKey && openaiKey.length > 0) ? new OpenAI({apiKey:openaiKey}) : openai_main;
 
-  const threadId = req.body.threadId.length > 0 ? req.body.threadId : (await openai.beta.threads.create()).id;
+  const threadId = (req.body.threadId && req.body.threadId.length > 0) ? req.body.threadId : (await openai.beta.threads.create()).id;
   await openai.beta.threads.messages.create(
     threadId,
     { role: "user", content: req.body.message}
@@ -39,7 +39,7 @@ export async function sendArchitectMessage(
   const openaiKey = req.headers.authorization;
   const openai = (openaiKey && openaiKey.length > 0) ? new OpenAI({apiKey:openaiKey}) : openai_main;
 
-  const threadId = req.body.threadId.length > 0 ? req.body.threadId : (await openai.beta.threads.create()).id;
+  const threadId = (req.body.threadId && req.body.threadId.length > 0) ? req.body.threadId : (await openai.beta.threads.create()).id;
   const fileId = req.body.fileId;
   await openai.beta.threads.messages.create(
     threadId,
@@ -72,7 +72,7 @@ export async function sendDataAnalystMessage(
   const openaiKey = req.headers.authorization;
   const openai = (openaiKey && openaiKey.length > 0) ? new OpenAI({apiKey:openaiKey}) : openai_main;
 
-  const threadId = req.body.threadId.length > 0 ? req.body.threadId : (await openai.beta.threads.create()).id;
+  const threadId = (req.body.threadId && req.body.threadId.length > 0) ? req.body.threadId : (await openai.beta.threads.create()).id;
   await openai.beta.threads.messages.create(
     threadId,
     { role: "user", content: `

@@ -194,7 +194,9 @@ export default function Home({useHeader}: {useHeader: boolean}) {
         setInternalMetadata(metadata);
       }
       const _fileId = await get('fileId');
-      setFileId(_fileId.id);
+      if (_fileId) {
+        setFileId(_fileId.id);
+      }
     }
     runAsync();
   }, [])
