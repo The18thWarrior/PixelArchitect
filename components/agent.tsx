@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent} from "react";
+import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
 import styles from "../styles/Home.module.css";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
@@ -15,7 +15,7 @@ import { Thread } from "@/utils/types";
 import { DeleteRounded } from "@mui/icons-material";
 import { postMessageAnalyst, postMessageArchitect, postMessageCategory, postMessageDefault, postMessageQuery, postMessageSoql } from "@/utils/api";
 
-export default function Agent({user, refreshId} : {user: {sub: string, email: string}, refreshId: string}) {
+export default function Agent({ user, refreshId }: { user: { sub: string, email: string }, refreshId: string }) {
   const [userInput, setUserInput] = useState("");
   const [currentThread, setCurrentThread] = useState("");
   const [openAIKey, setOpenAIKey] = useState('');
@@ -29,9 +29,9 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
   const messageListRef = useRef<HTMLDivElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    //console.log(user);
+    console.log(user);
   }, [user])
-  
+
   // Auto scroll chat to bottom
   useEffect(() => {
     if (messageListRef.current) {
@@ -51,7 +51,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
       textAreaRef.current.focus();
     }
     runAsync()
-    
+
   }, [refreshId]);
 
   // Handle errors
@@ -67,7 +67,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
     setUserInput("");
   };
 
-  const isRunComplete = async (threadId: string, runId: string) : Promise<any> => {
+  const isRunComplete = async (threadId: string, runId: string): Promise<any> => {
     const runStatus = await axios({
       url: `/api/chat?runId=${runId}&threadId=${threadId}`,
       method: "GET",
@@ -107,13 +107,13 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
   const updateThreads = async (_threadId: string, _name: string) => {
     const currentThreads = await get('threads');
     if (!currentThreads) {
-      await set('threads', [{threadId: _threadId, name: _name}]);
+      await set('threads', [{ threadId: _threadId, name: _name }]);
       return;
-    } 
+    }
     if (currentThreads.find((element: Thread) => element.threadId === _threadId)) {
       return;
     }
-    await set('threads', [...currentThreads, {threadId: _threadId, name: _name}]);
+    await set('threads', [...currentThreads, { threadId: _threadId, name: _name }]);
     return;
   }
 
@@ -137,11 +137,11 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
       timeout: 60000,
       headers: {
         Authorization: `${openAIKey}`
-      }  
+      }
     });
     const _messages = threadDetails.data.messages.body.data;
     const result = _messages.reverse().map((value: { role: any; content: { text: { value: any; }; }[]; }) => {
-      return {role: value.role, content: value.content[0].text.value};
+      return { role: value.role, content: value.content[0].text.value };
     })
     setMessages([{ role: "assistant", content: "Hi there! I'm Nemos, your friendly neighborhood Architect. How can I help?" }, ...result]);
   }
@@ -167,7 +167,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
         }), openAIKey);
         const result = JSON.parse(_result);
         console.log(result);
-        if (result.category === 'data_deprecated') {
+        if (result.category === 'data') {
           const sObjectsNames = result.sObjects;
           const fields = sObjectsNames.reduce((finalVal: any, sObject: string) => {
             return [...finalVal, {
@@ -187,18 +187,18 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
           const threadId = sendMessage.threadId;
           setCurrentThread(threadId);
           const runId = sendMessage.runId;
-    
+
           const responseMessage = await isRunComplete(threadId, runId);
           if (!responseMessage) {
             handleError();
             return;
           }
-    
+
           // Reset user input
           setUserInput("");
-    
+
           //const data = await response.json();
-          const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+          const firstMessage = context.find((value: { role: string }) => value.role as string === 'user');
           await updateThreads(threadId, firstMessage?.content as string);
           setMessages((prevMessages) => [
             ...prevMessages,
@@ -214,18 +214,18 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
           const threadId = sendMessage.threadId;
           setCurrentThread(threadId);
           const runId = sendMessage.runId;
-    
+
           const responseMessage = await isRunComplete(threadId, runId);
           if (!responseMessage) {
             handleError();
             return;
           }
-    
+
           // Reset user input
           setUserInput("");
-    
+
           //const data = await response.json();
-          const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+          const firstMessage = context.find((value: { role: string }) => value.role as string === 'user');
           await updateThreads(threadId, firstMessage?.content as string);
           setMessages((prevMessages) => [
             ...prevMessages,
@@ -270,7 +270,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
         setUserInput("");
 
         //const data = await response.json();
-        const firstMessage = context.find((value: {role: string}) => value.role as string === 'user');
+        const firstMessage = context.find((value: { role: string }) => value.role as string === 'user');
         await updateThreads(threadId, firstMessage?.content as string);
         setMessages((prevMessages) => [
           ...prevMessages,
@@ -283,7 +283,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
       handleError();
       return;
     }
-    
+
   };
 
   // Prevent blank submissions and allow for multiline input
@@ -319,23 +319,23 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
         return;
       }
       setIsSidebarOpen(open);
-  };
+    };
 
   const SidebarList = () => (
     <Box
-      sx={{ width: 300, backgroundColor: '#1d2333 !important', height: '85vh', overflowY: 'scroll'}}
+      sx={{ width: 300, backgroundColor: '#1d2333 !important', height: '85vh', overflowY: 'scroll' }}
       role="presentation"
       onClick={toggleDrawer(false)}
       onKeyDown={toggleDrawer(false)}
     >
-      
+
       <List>
-        <ListItem sx={{color: 'white'}}>
+        <ListItem sx={{ color: 'white' }}>
           <ListItemText primary={<Typography variant={'h5'} textAlign={'center'}>Conversations</Typography>} />
         </ListItem>
-        <Divider sx={{color:'snow', borderColor: '#444'}}/>
+        <Divider sx={{ color: 'snow', borderColor: '#444' }} />
         {threadList.map((thread, index) => (
-          <ListItem key={thread.threadId} disablePadding sx={{color: 'white'}} 
+          <ListItem key={thread.threadId} disablePadding sx={{ color: 'white' }}
             secondaryAction={
               <IconButton edge="end" aria-label="delete" color={'inherit'} onClick={() => deleteThread(thread.threadId)}>
                 <DeleteRounded />
@@ -362,12 +362,12 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
                 key={index}
                 className={
                   message.role === "user" &&
-                  loading &&
-                  index === messages.length - 1
+                    loading &&
+                    index === messages.length - 1
                     ? styles.usermessagewaiting
                     : message.role === "assistant"
-                    ? styles.apimessage
-                    : styles.usermessage
+                      ? styles.apimessage
+                      : styles.usermessage
                 }
               >
                 {/* Display the correct icon depending on the message type */}
@@ -411,7 +411,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
               autoFocus={false}
               rows={1}
               maxLength={512}
-              
+
               id="userInput"
               name="userInput"
               placeholder={
@@ -449,7 +449,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
             <a href="https://openai.com/" target="_blank">
               OpenAI
             </a>
-            . {!openAIKey || openAIKey.length === 0 && 'Limited to 25 requests per hour.' }
+            . {!openAIKey || openAIKey.length === 0 && 'Limited to 25 requests per hour.'}
           </p>
         </div>
       </div>
@@ -457,7 +457,7 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
         anchor={'left'}
         open={isSidebarOpen}
         onClose={toggleDrawer(false)}
-        sx={{backgroundColor: '#1d2333 !important' }}
+        sx={{ backgroundColor: '#1d2333 !important' }}
         PaperProps={{
           sx: {
             backgroundColor: "#1d2333",
@@ -467,9 +467,9 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
       >
         <Stack direction={'column'} spacing={0}>
           {SidebarList()}
-          <Box sx={{height: '10vh', zIndex:10000}}>
-            <Divider sx={{color:'snow', borderColor: '#444'}}/>
-            <Box p={2} sx={{color:'snow'}} className={styles.cloudform}>
+          <Box sx={{ height: '10vh', zIndex: 10000 }}>
+            <Divider sx={{ color: 'snow', borderColor: '#444' }} />
+            <Box p={2} sx={{ color: 'snow' }} className={styles.cloudform}>
               {openAIKey && openAIKey.length > 0 &&
                 <Typography variant={'caption'}>OpenAI API Key</Typography>
               }
@@ -483,11 +483,11 @@ export default function Agent({user, refreshId} : {user: {sub: string, email: st
                 }}
               />
             </Box>
-            
+
           </Box>
         </Stack>
       </Drawer>
-      <IconButton color={'inherit'} sx={{position: 'absolute', bottom: 0, left: 0, padding: 2 }} onClick={toggleDrawer(true)}><ViewSidebarIcon /></IconButton>
+      <IconButton color={'inherit'} sx={{ position: 'absolute', bottom: 0, left: 0, padding: 2 }} onClick={toggleDrawer(true)}><ViewSidebarIcon /></IconButton>
     </main>
   );
 }
