@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent} from "react";
+import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
 import Image from "next/image";
@@ -10,7 +10,7 @@ import { styled, alpha } from '@mui/material/styles';
 import axios from "axios";
 import { Auth0Provider, User, useAuth0 } from "@auth0/auth0-react";
 import { run } from "node:test";
-import {Connection} from "jsforce"
+import { Connection } from "jsforce"
 import Agent from "@/components/agent";
 import { IconSalesforce } from "@/components/icons";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -64,12 +64,12 @@ const StyledMenu = styled((props: MenuProps) => (
   },
 }));
 
-export default function Home({useHeader}: {useHeader: boolean}) {
-  const { isAuthenticated, loginWithRedirect,loginWithPopup, logout, user } = useAuth0();
-  const [ userInfo, setUserInfo] = useState({
+export default function Home({ useHeader }: { useHeader: boolean }) {
+  const { isAuthenticated, loginWithRedirect, loginWithPopup, logout, user } = useAuth0();
+  const [userInfo, setUserInfo] = useState({
     id: ''
   } as UserInfo);
-  const [ isDeleteHover, setIsDeleteHover] = useState(false);
+  const [isDeleteHover, setIsDeleteHover] = useState(false);
   const [internalMetadata, setInternalMetadata] = useState({} as Metadata);
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState('');
@@ -106,7 +106,7 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     const flowsFiltered = flowsComplete.filter((val: { fullName: string; }) => {
       return val.fullName !== null
     })
-    
+
     //setStage(`approval`);
     //const approval = await (await fetch(`/api/adapter/salesforce/metadata?sub=${user?.sub}&type=approval`)).json()
     setStage(`Objects`);
@@ -145,7 +145,7 @@ export default function Home({useHeader}: {useHeader: boolean}) {
       apex: apexFiltered,
       triggers: triggerFiltered,
       flows: flowsFiltered,
-     //approval,
+      //approval,
       assignment,
       aura,
       connected,
@@ -159,8 +159,8 @@ export default function Home({useHeader}: {useHeader: boolean}) {
       validations,
       //territory,
       //queueconfig,
-    } 
-    
+    }
+
     await set('sfdc:metadata', fullDataset);
     setInternalMetadata(fullDataset);
 
@@ -173,12 +173,12 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     setLoading(false);
     setRefreshId(nanoid())
   }
-  // user info
+  // user infos
   useEffect(() => {
-    const runAsync = async() => {
+    const runAsync = async () => {
       const result = await fetch(`/api/adapter/salesforce/user?sub=${user?.sub}`);
       const _userInfo = await result.json();
-      console.log('userInfo',_userInfo);
+      console.log('userInfo', _userInfo);
       if (_userInfo && userInfo !== null) {
         setUserInfo(_userInfo as UserInfo);
       }
@@ -201,13 +201,13 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     runAsync();
   }, [])
 
-  const authorize = async() => {
-      window.location.assign(`/api/adapter/salesforce?sub=${user?.sub}`);
+  const authorize = async () => {
+    window.location.assign(`/api/adapter/salesforce?sub=${user?.sub}`);
   }
 
-  const deleteAuth = async() => {
+  const deleteAuth = async () => {
     const result = await fetch(`/api/adapter/salesforce?sub=${user?.sub}`, { method: 'DELETE' });
-    setUserInfo({id:''} as UserInfo);
+    setUserInfo({ id: '' } as UserInfo);
   }
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -219,19 +219,19 @@ export default function Home({useHeader}: {useHeader: boolean}) {
     setAnchorEl(null);
   };
 
-  function MetadataButton() {  
+  function MetadataButton() {
     return (
       <MenuItem onClick={() => retrieveMetadata()}>
-        {!loading && 
+        {!loading &&
           <>
-            {fileId.length > 0 && <ListItemIcon><CheckCircleIcon sx={{textAlign: 'center', mx: 'auto', color: 'green !important'}}/></ListItemIcon> }
-            
+            {fileId.length > 0 && <ListItemIcon><CheckCircleIcon sx={{ textAlign: 'center', mx: 'auto', color: 'green !important' }} /></ListItemIcon>}
+
             <Typography variant={'body1'}>{'Refresh Metadata'}</Typography>
           </>
         }
-        {loading && 
+        {loading &&
           <>
-           <ListItemIcon><CircularProgress size={20} sx={{textAlign: 'center', mx: 'auto'}}/></ListItemIcon> 
+            <ListItemIcon><CircularProgress size={20} sx={{ textAlign: 'center', mx: 'auto' }} /></ListItemIcon>
             <Typography variant={'body1'}>{stage}</Typography>
           </>
         }
@@ -240,13 +240,13 @@ export default function Home({useHeader}: {useHeader: boolean}) {
   }
 
   if (!isAuthenticated) {
-    return <div className={styles.loginbuttondiv}><button className={styles.loginbutton} onClick={()=>loginWithPopup()}>Log in</button></div>;
+    return <div className={styles.loginbuttondiv}><button className={styles.loginbutton} onClick={() => loginWithPopup()}>Log in</button></div>;
   }
 
   return (
-    
+
     <>
-      {useHeader && 
+      {useHeader &&
         <div className={styles.topnav}>
           <div className={styles.navlogo}>
             <Image src={'/Fox_Logo.png'} alt={""} width={25} height={25} />
@@ -259,46 +259,46 @@ export default function Home({useHeader}: {useHeader: boolean}) {
             >
               Docs
             </a>*/}
-            {userInfo && userInfo.id.length === 0 && 
-              <Button variant={'text'} onClick={()=>{authorize()}} endIcon={<IconSalesforce />} sx={{textTransform:'none', fontWeight:'bold'}}>Connect</Button>
+            {userInfo && userInfo.id.length === 0 &&
+              <Button variant={'text'} onClick={() => { authorize() }} endIcon={<IconSalesforce />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Connect</Button>
             }
-            {userInfo.id.length > 0 && 
+            {userInfo.id.length > 0 &&
               <>
-              <IconButton
-                id="basic-button"
-                onClick={handleClick}
-                sx={{paddingY:.45}}
-              >
-                <IconSalesforce />
-              </IconButton>
-              <StyledMenu
-                id="basic-menu"
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleClose}
-                MenuListProps={{
-                  'aria-labelledby': 'basic-button',
-                }}
-                sx={{marginY:0, paddingY: 0}}
-              >
-                <MenuItem>{userInfo.name}</MenuItem>
-                <Divider />
-                
-                <MetadataButton />
-                <MenuItem onClick={() => deleteAuth()} >
-                  <ListItemText inset>Disconnect</ListItemText>
-                </MenuItem>
-              </StyledMenu>
+                <IconButton
+                  id="basic-button"
+                  onClick={handleClick}
+                  sx={{ paddingY: .45 }}
+                >
+                  <IconSalesforce />
+                </IconButton>
+                <StyledMenu
+                  id="basic-menu"
+                  anchorEl={anchorEl}
+                  open={open}
+                  onClose={handleClose}
+                  MenuListProps={{
+                    'aria-labelledby': 'basic-button',
+                  }}
+                  sx={{ marginY: 0, paddingY: 0 }}
+                >
+                  <MenuItem>{userInfo.name}</MenuItem>
+                  <Divider />
+
+                  <MetadataButton />
+                  <MenuItem onClick={() => deleteAuth()} >
+                    <ListItemText inset>Disconnect</ListItemText>
+                  </MenuItem>
+                </StyledMenu>
               </>
             }
-              
+
             <button onClick={() => logout()} className={styles.loginbutton}>Logout</button>
-            
+
           </div>
         </div>
       }
-      
-      <Agent user={{sub: user?.sub as string, email: user?.email as string}} refreshId={refreshId}/>
+
+      <Agent user={{ sub: user?.sub as string, email: user?.email as string }} refreshId={refreshId} />
     </>
   );
 }
